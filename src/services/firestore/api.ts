@@ -106,15 +106,22 @@ export async function deleteProfessionalService(serviceId: string): Promise<void
   await updateDoc(docRef, { isActive: false, updatedAt: new Date().toISOString() })
 }
 
-// Get all verified professionals for discovery
+// Get all active professionals for discovery (verified professionals, or any registered pro in prototype mode)
 export async function getVerifiedProfessionals(): Promise<
   (ProfessionalProfile & { user?: UserProfile; services?: ProfessionalService[] })[]
 > {
-  const q = query(
-    collection(db, 'professionalProfiles'),
-    where('verificationStatus', '==', 'VERIFIED')
+  let snap = await getDocs(
+    query(
+      collection(db, 'professionalProfiles'),
+      where('verificationStatus', '==', 'VERIFIED')
+    )
   )
-  const snap = await getDocs(q)
+
+  // Prototype fallback: If no verified pros exist yet, show registered pros so prototype can be explored
+  if (snap.empty) {
+    snap = await getDocs(collection(db, 'professionalProfiles'))
+  }
+
   const profiles = snap.docs.map((d) => d.data() as ProfessionalProfile)
 
   // Fetch their user names and services efficiently

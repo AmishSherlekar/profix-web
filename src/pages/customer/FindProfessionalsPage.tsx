@@ -13,7 +13,7 @@ import {
   Navigation,
 } from 'lucide-react'
 import { getVerifiedProfessionals, getActiveCategories } from '@/services/firestore/api'
-import { ProfessionalProfile, ServiceCategory, UserProfile } from '@/types'
+import { ProfessionalProfile, ProfessionalService, ServiceCategory, UserProfile } from '@/types'
 import { calculateDistanceKm } from '@/utils/cn'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
@@ -33,7 +33,7 @@ export const FindProfessionalsPage: React.FC = () => {
   const initialCat = searchParams.get('category') || 'all'
 
   const [professionals, setProfessionals] = useState<
-    (ProfessionalProfile & { user?: UserProfile })[]
+    (ProfessionalProfile & { user?: UserProfile; services?: ProfessionalService[] })[]
   >([])
   const [categories, setCategories] = useState<ServiceCategory[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCat)
@@ -102,6 +102,12 @@ export const FindProfessionalsPage: React.FC = () => {
       return { ...pro, distanceKm }
     })
     .filter((pro) => {
+      if (selectedCategory !== 'all') {
+        const offersCategory = pro.services?.some(
+          (s) => s.isActive && s.categoryId === selectedCategory
+        )
+        if (!offersCategory) return false
+      }
       if (availabilityFilter !== 'all' && pro.availabilityStatus !== availabilityFilter) {
         return false
       }
@@ -230,10 +236,13 @@ export const FindProfessionalsPage: React.FC = () => {
                     <Avatar name={pro.user?.fullName || 'Pro'} size="lg" />
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900">{pro.user?.fullName || 'Verified Tradesperson'}</h3>
-                        <Badge variant="success" className="gap-1 py-0.5">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Verified</span>
+                        <h3 className="text-base font-bold text-slate-900">{pro.user?.fullName || 'Tradesperson'}</h3>
+                        <Badge
+                          variant={pro.verificationStatus === 'VERIFIED' ? 'success' : 'warning'}
+                          className="gap-1 py-0.5"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>{pro.verificationStatus === 'VERIFIED' ? 'Verified' : 'Pending Verification'}</span>
                         </Badge>
                       </div>
 
@@ -285,6 +294,31 @@ export const FindProfessionalsPage: React.FC = () => {
                   <p className="mt-4 text-xs sm:text-sm text-slate-600 line-clamp-2 text-left">
                     {pro.bio}
                   </p>
+                )}
+
+                {pro.services && pro.services.filter((s) => s.isActive).length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Services:
+                    </span>
+                    {pro.services
+                      .filter((s) => s.isActive)
+                      .slice(0, 3)
+                      .map((svc) => (
+                        <span
+                          key={svc.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700"
+                        >
+                          <span>{svc.description}</span>
+                          <span className="text-blue-600 font-bold">from ${svc.startingPrice}</span>
+                        </span>
+                      ))}
+                    {pro.services.filter((s) => s.isActive).length > 3 && (
+                      <span className="text-xs text-slate-400 font-medium">
+                        +{pro.services.filter((s) => s.isActive).length - 3} more
+                      </span>
+                    )}
+                  </div>
                 )}
               </Card>
             ))
